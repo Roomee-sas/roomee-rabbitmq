@@ -5,8 +5,8 @@ services:
     build: .
     container_name: roomee-rabbitmq
     ports:
-      - "5672:5672"   # AMQP
-      - "15672:15672" # Management UI
+      - "5673:5672"   # AMQP
+      - "15673:15672" # Management UI
     environment:
       - RABBITMQ_DEFAULT_USER=roomee_admin
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}

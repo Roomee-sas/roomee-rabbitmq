@@ -1,8 +1,9 @@
 FROM rabbitmq:3.13-management-alpine
 
-# Configuration de base
+# Configuration de base - Les variables seront définies au runtime par Koyeb
 ENV RABBITMQ_DEFAULT_USER=roomee_admin
-ENV RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+# Le mot de passe sera défini via les variables d'environnement Koyeb
+# ENV RABBITMQ_DEFAULT_PASS sera défini au runtime
 
 # Exposer les ports
 # 5672: AMQP port
