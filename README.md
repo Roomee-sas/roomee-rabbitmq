@@ -1,12 +1,44 @@
-# 🚀 Guide de Déploiement RabbitMQ sur Koyeb
+# 🐰 RabbitMQ Docker Setup for Koyeb
 
-## Prérequis
-- Compte Koyeb actif
-- Docker installé localement
+Configuration Docker de RabbitMQ optimisée pour le déploiement sur Koyeb, conçue pour l'écosystème de microservices Roomee.
+
+## 📋 Vue d'ensemble
+
+Ce repository contient une configuration Docker complète pour déployer RabbitMQ avec l'interface de management sur la plateforme Koyeb. Il inclut la configuration pour le développement local et la production.
+
+## 🛠 Prérequis
+
+- Docker et Docker Compose installés
+- Compte Koyeb (pour la production)
 - Git configuré
-- Koyeb CLI (optionnel)
 
-## 📝 Procédure étape par étape
+## 🚀 Démarrage rapide
+
+### Développement local
+
+1. **Cloner le repository**
+```bash
+git clone https://github.com/Roomee-sas/roomee-rabbitmq.git
+cd roomee-rabbitmq
+```
+
+2. **Configurer les variables d'environnement**
+```bash
+cp .env.example .env
+# Modifier .env avec vos valeurs
+```
+
+3. **Démarrer RabbitMQ**
+```bash
+docker-compose up -d
+```
+
+4. **Accéder à l'interface**
+- **AMQP**: `localhost:5673`
+- **Management UI**: http://localhost:15673
+- **Identifiants**: Voir votre fichier `.env`
+
+## 📝 Déploiement sur Koyeb
 
 ### 1️⃣ Test local
 ```bash
@@ -180,29 +212,57 @@ git push origin main
 koyeb service redeploy roomee-rabbitmq/roomee-rabbitmq
 ```
 
+## 🔧 Configuration des microservices
+
+Une fois RabbitMQ déployé, configurez vos microservices avec l'URL de connexion :
+
+### Local
+```javascript
+const amqpUrl = 'amqp://roomee_admin:[PASSWORD]@localhost:5673';
+```
+
+### Production (Koyeb)
+```javascript
+const amqpUrl = 'amqps://roomee_admin:[PASSWORD]@roomee-rabbitmq-roomee.koyeb.app:5672';
+```
+
+## 📁 Structure du projet
+
+```
+├── Dockerfile              # Configuration Docker
+├── docker-compose.yml      # Setup développement local
+├── rabbitmq.conf          # Configuration RabbitMQ
+├── startup.sh             # Script d'initialisation
+├── .env.example           # Template variables d'environnement
+├── .gitignore            # Fichiers ignorés par Git
+└── README.md             # Ce fichier
+```
+
 ## 🆘 Troubleshooting
 
 ### Connection refused
 ```bash
-# Vérifier le statut
-koyeb service get roomee-rabbitmq/roomee-rabbitmq
+# Vérifier le statut du container
+docker ps | grep rabbitmq
 
 # Voir les logs
-koyeb service logs roomee-rabbitmq/roomee-rabbitmq
+docker logs roomee-rabbitmq
 ```
 
-### Memory issues
-Augmenter l'instance type dans Koyeb :
-```bash
-koyeb service update roomee-rabbitmq/roomee-rabbitmq \
-  --instance-type medium
+### Port déjà utilisé
+Modifier les ports dans `docker-compose.yml` :
+```yaml
+ports:
+  - "5674:5672"   # AMQP
+  - "15674:15672" # Management UI
 ```
 
-### Queue overflow
-Se connecter et purger :
-```bash
-koyeb exec roomee-rabbitmq -- rabbitmqctl purge_queue queue_name
-```
+## 🔒 Sécurité
+
+- ⚠️ **Jamais de mots de passe en clair** dans le code
+- 🔐 Variables d'environnement uniquement
+- 🛡️ SSL/TLS automatique sur Koyeb
+- 🔑 Authentification forte requise
 
 ## 📚 Ressources
 
@@ -210,23 +270,14 @@ koyeb exec roomee-rabbitmq -- rabbitmqctl purge_queue queue_name
 - [RabbitMQ Documentation](https://www.rabbitmq.com/documentation.html)
 - [RabbitMQ Docker Image](https://hub.docker.com/_/rabbitmq)
 
-## 💡 Tips
+## 🤝 Contribution
 
-1. **Haute Disponibilité** : Déployez plusieurs replicas
-2. **Backup** : Configurez des exports réguliers des définitions
-3. **Monitoring** : Intégrez avec Datadog/NewRelic via Koyeb
-4. **Scaling** : Utilisez l'autoscaling Koyeb basé sur CPU/Memory
+1. Fork le projet
+2. Créer une branche feature (`git checkout -b feature/nouvelle-fonctionnalite`)
+3. Commit les changements (`git commit -am 'Ajouter nouvelle fonctionnalité'`)
+4. Push vers la branche (`git push origin feature/nouvelle-fonctionnalite`)
+5. Créer une Pull Request
 
-## Coûts estimés sur Koyeb
+---
 
-- **Starter** (Free) : Limité, pour tests
-- **Small Instance** : ~$8/mois
-- **Medium Instance** : ~$16/mois (recommandé pour production)
-- **Large Instance** : ~$32/mois (haute charge)
-
-## 🔗 Connexion rapide pour vos services
-
-Une fois déployé sur Koyeb, utilisez cette URL dans vos services :
-```javascript
-const amqpUrl = 'amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672';
-```
+**Roomee SAS** - Plateforme hôtelière complète
