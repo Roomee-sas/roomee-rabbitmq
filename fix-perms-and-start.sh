@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# --- 1) Permissions volume (cookie Erlang doit être 400 / owner rabbitmq) ---
+# --- 1) Permissions volume (cookie Erlang strict) ---
 if [ -d /var/lib/rabbitmq ]; then
   chown -R rabbitmq:rabbitmq /var/lib/rabbitmq || true
   if [ -f /var/lib/rabbitmq/.erlang.cookie ]; then
@@ -10,39 +10,48 @@ if [ -d /var/lib/rabbitmq ]; then
   fi
 fi
 
-# --- 2) Démarrer le serveur en arrière-plan via l'entrypoint officiel ---
-docker-entrypoint.sh rabbitmq-server -detached
+# --- 2) Init user en tâche de fond, sans jamais faire planter le conteneur ---
+init_user() {
+  USER_NAME="${RABBITMQ_DEFAULT_USER:-}"
+  USER_PASS="${RABBITMQ_DEFAULT_PASS:-}"
+  USER_VHOST="${RABBITMQ_DEFAULT_VHOST:-/}"
 
-# --- 3) Attendre que l'app 'rabbit' soit *vraiment* démarrée ---
-# (ping ne suffit pas; on attend le démarrage complet)
-rabbitmqctl await_startup
+  # si pas d'env -> rien à faire
+  [ -n "$USER_NAME" ] && [ -n "$USER_PASS" ] || return 0
 
-# (optionnel) Attendre que le listener Management soit ouvert
-# for i in $(seq 1 60); do nc -z 127.0.0.1 15672 && break || sleep 1; done
+  # Attendre que le nœud réponde au ping
+  i=180
+  until rabbitmq-diagnostics -q ping; do
+    sleep 2
+    i=$((i-1)) || true
+    [ "$i" -le 0 ] && echo "[init] Timeout ping, abandon init (non bloquant)"; return 0
+  done
 
-# --- 4) Init idempotente de l'utilisateur à partir des variables d'env ---
-USER_NAME="${RABBITMQ_DEFAULT_USER:-}"
-USER_PASS="${RABBITMQ_DEFAULT_PASS:-}"
-USER_VHOST="${RABBITMQ_DEFAULT_VHOST:-/}"
+  # Attendre que *l'app* rabbit soit démarrée (et pas juste le nœud)
+  i=180
+  until rabbitmqctl await_startup >/dev/null 2>&1; do
+    sleep 2
+    i=$((i-1)) || true
+    [ "$i" -le 0 ] && echo "[init] Timeout await_startup, abandon init (non bloquant)"; return 0
+  done
 
-if [ -n "$USER_NAME" ] && [ -n "$USER_PASS" ]; then
-  # s'assurer que le vhost existe
-  rabbitmqctl add_vhost "$USER_VHOST" 2>/dev/null || true
+  # Créer le vhost s'il n'existe pas
+  rabbitmqctl add_vhost "$USER_VHOST" >/dev/null 2>&1 || true
 
-  # créer l'user ou mettre à jour son mot de passe
+  # Créer l'utilisateur s'il n'existe pas, sinon MAJ mot de passe
   if rabbitmqctl list_users -q | awk '{print $1}' | grep -x "$USER_NAME" >/dev/null 2>&1; then
     rabbitmqctl change_password "$USER_NAME" "$USER_PASS" || true
   else
-    rabbitmqctl add_user "$USER_NAME" "$USER_PASS"
+    rabbitmqctl add_user "$USER_NAME" "$USER_PASS" || true
   fi
 
   rabbitmqctl set_user_tags "$USER_NAME" administrator || true
   rabbitmqctl set_permissions -p "$USER_VHOST" "$USER_NAME" ".*" ".*" ".*" || true
-fi
 
-# --- 5) Shutdown propre sur SIGTERM (Koyeb) ---
-term() { rabbitmqctl stop; exit 0; }
-trap term TERM INT
+  echo "[init] User '$USER_NAME' prêt sur vhost '$USER_VHOST'"
+}
 
-# --- 6) Rester en avant-plan (logs) ---
-tail -F /var/log/rabbitmq/*.log & wait $!
+init_user &
+
+# --- 3) Lancer RabbitMQ au premier plan (PID 1) ---
+exec docker-entrypoint.sh rabbitmq-server
