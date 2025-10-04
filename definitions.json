@@ -1,14 +1,5 @@
 {
   "vhosts": [{ "name": "/" }],
-  "permissions": [
-    {
-      "user": "roomee_admin",
-      "vhost": "/",
-      "configure": ".*",
-      "write": ".*",
-      "read": ".*"
-    }
-  ],
   "exchanges": [
     {
       "name": "roomee_events",
