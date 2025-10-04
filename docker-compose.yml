@@ -10,7 +10,7 @@ services:
       - '15672:15672' # Management UI
     environment:
       - RABBITMQ_DEFAULT_USER=roomee_admin
-      - RABBITMQ_DEFAULT_PASS="R00m33_@MQP_2024!"
+      - RABBITMQ_DEFAULT_PASS=R00m33_@MQP_2024!
       - RABBITMQ_DEFAULT_VHOST=/
     # Volumes persistants en local (optionnel si tu veux repartir propre)
     volumes:
