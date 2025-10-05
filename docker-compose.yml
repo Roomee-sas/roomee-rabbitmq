@@ -8,9 +8,10 @@ services:
     ports:
       - '5672:5672' # AMQP
       - '15672:15672' # Management UI
+      - '5671:5671' # AMQP SSL
     environment:
       - RABBITMQ_DEFAULT_USER=roomee_admin
-      - RABBITMQ_DEFAULT_PASS=R00m33_@MQP_2024!
+      - RABBITMQ_DEFAULT_PASS='R00m33_@MQP_2024!'
       - RABBITMQ_DEFAULT_VHOST=/
     # Volumes persistants en local (optionnel si tu veux repartir propre)
     volumes:
