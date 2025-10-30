@@ -1,94 +1,20 @@
 {
-  "vhosts": [{ "name": "/" }],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
   "exchanges": [
     {
       "name": "roomee_events",
       "vhost": "/",
       "type": "topic",
       "durable": true,
-      "auto_delete": false
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
     }
   ],
-  "queues": [
-    {
-      "name": "auth_queue",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false
-    },
-    {
-      "name": "notification_queue",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false
-    },
-    {
-      "name": "news_queue",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false
-    },
-    {
-      "name": "hotel_queue",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false
-    },
-    {
-      "name": "member_queue",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false
-    },
-    {
-      "name": "media_queue",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false
-    }
-  ],
-  "bindings": [
-    {
-      "source": "roomee_events",
-      "vhost": "/",
-      "destination": "auth_queue",
-      "destination_type": "queue",
-      "routing_key": "roomee.auth.*"
-    },
-    {
-      "source": "roomee_events",
-      "vhost": "/",
-      "destination": "notification_queue",
-      "destination_type": "queue",
-      "routing_key": "roomee.notification.*"
-    },
-    {
-      "source": "roomee_events",
-      "vhost": "/",
-      "destination": "news_queue",
-      "destination_type": "queue",
-      "routing_key": "roomee.news.*"
-    },
-    {
-      "source": "roomee_events",
-      "vhost": "/",
-      "destination": "hotel_queue",
-      "destination_type": "queue",
-      "routing_key": "roomee.hotel.*"
-    },
-    {
-      "source": "roomee_events",
-      "vhost": "/",
-      "destination": "member_queue",
-      "destination_type": "queue",
-      "routing_key": "roomee.member.*"
-    },
-    {
-      "source": "roomee_events",
-      "vhost": "/",
-      "destination": "media_queue",
-      "destination_type": "queue",
-      "routing_key": "roomee.media.*"
-    }
-  ]
+  "queues": [],
+  "bindings": []
 }

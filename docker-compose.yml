@@ -6,9 +6,9 @@ services:
     image: roomee-rabbitmq:latest
     container_name: roomee-rabbitmq
     ports:
-      - '5672:5672' # AMQP
-      - '15672:15672' # Management UI
-      - '5671:5671' # AMQP SSL
+      - '5673:5672' # AMQP (port local 5673 pour éviter conflit)
+      - '15673:15672' # Management UI (port local 15673)
+      # - '5671:5671' # AMQP SSL (désactivé pour dev local)
     environment:
       - RABBITMQ_DEFAULT_USER=roomee_admin
       - RABBITMQ_DEFAULT_PASS='R00m33_@MQP_2024!'

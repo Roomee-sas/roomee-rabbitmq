@@ -33,10 +33,33 @@ cp .env.example .env
 docker-compose up -d
 ```
 
-4. **Accéder à l'interface**
+4. **Créer l'utilisateur admin** (si pas créé automatiquement)
+```bash
+docker exec roomee-rabbitmq rabbitmqctl add_user roomee_admin R00m33_@MQP_2024!
+docker exec roomee-rabbitmq rabbitmqctl set_user_tags roomee_admin administrator
+docker exec roomee-rabbitmq rabbitmqctl set_permissions -p / roomee_admin ".*" ".*" ".*"
+```
+
+5. **Accéder à l'interface**
 - **AMQP**: `localhost:5673`
 - **Management UI**: http://localhost:15673
-- **Identifiants**: Voir votre fichier `.env`
+- **Identifiants**:
+  - Username: `roomee_admin`
+  - Password: `R00m33_@MQP_2024!`
+
+6. **Tester avec les scripts d'exemple** 📋
+```bash
+cd examples
+npm install
+
+# Terminal 1: Démarrer le consumer
+npm run consumer
+
+# Terminal 2: Envoyer un message de test
+npm run producer
+```
+
+Pour plus de détails sur les tests : **[📖 Guide de Test Local](./examples/TEST-LOCAL.md)**
 
 ## 📝 Déploiement sur Koyeb
 
@@ -143,28 +166,65 @@ koyeb app create roomee-rabbitmq \
 
 ## 🔧 Configuration pour les microservices Roomee
 
+### 🎯 Architecture : Auto-création des Queues
+
+**Important** : Les queues et bindings sont créés **automatiquement** par chaque service au démarrage.
+Le fichier `definitions.json` ne contient que l'exchange principal `roomee_events`.
+
 ### Mise à jour des services
-Mettre à jour les `.env` de chaque service :
+
+Mettre à jour les `.env` de chaque service avec le bon nom de queue :
 
 ```bash
 # api-authentication/.env
 AMQP_GATEWAY_URL=amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672
 AMQP_EXCHANGE_NAME=roomee_events
-AMQP_QUEUE_NAME=auth_queue
+AMQP_QUEUE_NAME=amqp_authentication_queue_dev  # ⚠️ Nom spécifique au service
+AMQP_ROUTING_KEYS=["roomee.auth.*"]
 AMQP_ROUTING_KEY_BASE=roomee.auth
 
 # api-notification/.env
 AMQP_GATEWAY_URL=amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672
 AMQP_EXCHANGE_NAME=roomee_events
-AMQP_QUEUE_NAME=notification_queue
+AMQP_QUEUE_NAME=amqp_notification_queue_dev
+AMQP_ROUTING_KEYS=["roomee.notification.*","roomee.auth.*","roomee.member.*"]
 AMQP_ROUTING_KEY_BASE=roomee.notification
 
 # api-news/.env
 AMQP_GATEWAY_URL=amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672
 AMQP_EXCHANGE_NAME=roomee_events
-AMQP_QUEUE_NAME=news_queue
+AMQP_QUEUE_NAME=amqp_news_queue_dev
+AMQP_ROUTING_KEYS=["roomee.news.*","roomee.member.*"]
 AMQP_ROUTING_KEY_BASE=roomee.news
+
+# api-hotel/.env
+AMQP_GATEWAY_URL=amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672
+AMQP_EXCHANGE_NAME=roomee_events
+AMQP_QUEUE_NAME=amqp_hotel_queue_dev
+AMQP_ROUTING_KEYS=["roomee.hotel.*"]
+AMQP_ROUTING_KEY_BASE=roomee.hotel
+
+# api-staff-member/.env
+AMQP_GATEWAY_URL=amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672
+AMQP_EXCHANGE_NAME=roomee_events
+AMQP_QUEUE_NAME=amqp_member_queue_dev
+AMQP_ROUTING_KEYS=["roomee.member.*","roomee.auth.*"]
+AMQP_ROUTING_KEY_BASE=roomee.member
+
+# api-media/.env
+AMQP_GATEWAY_URL=amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672
+AMQP_EXCHANGE_NAME=roomee_events
+AMQP_QUEUE_NAME=amqp_media_queue_dev
+AMQP_ROUTING_KEYS=["roomee.media.*"]
+AMQP_ROUTING_KEY_BASE=roomee.media
 ```
+
+### 📖 Documentation complète
+
+Voir les fichiers suivants pour plus de détails :
+- **[SERVICE-AMQP-SETUP.md](./SERVICE-AMQP-SETUP.md)** : Guide complet de configuration AMQP
+- **[example-service-config.env](./example-service-config.env)** : Exemples de configuration par service
+- **[example-service-implementation.ts](./example-service-implementation.ts)** : Code d'exemple pour l'intégration
 
 ## 🔒 Sécurité
 
