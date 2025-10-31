@@ -1,343 +1,474 @@
-# 🐰 RabbitMQ Docker Setup for Koyeb
+# 🐰 RabbitMQ Docker pour Roomee
 
-Configuration Docker de RabbitMQ optimisée pour le déploiement sur Koyeb, conçue pour l'écosystème de microservices Roomee.
+Configuration Docker de RabbitMQ optimisée pour l'écosystème de microservices Roomee, compatible développement local et production Koyeb.
 
-## 📋 Vue d'ensemble
+---
 
-Ce repository contient une configuration Docker complète pour déployer RabbitMQ avec l'interface de management sur la plateforme Koyeb. Il inclut la configuration pour le développement local et la production.
+## 📋 Vue d'Ensemble
 
-## 🛠 Prérequis
+- **Version** : RabbitMQ 3.13 (Alpine)
+- **Exchanges** : `roomee_events` (principal) + `gateway_exchange`
+- **Environnements** : Local (Docker) + Production (Koyeb)
+- **Documentation** : Configuration réseau, tests et troubleshooting
 
-- Docker et Docker Compose installés
-- Compte Koyeb (pour la production)
-- Git configuré
+---
 
-## 🚀 Démarrage rapide
+## 🚀 Démarrage Rapide
 
-### Développement local
+### Local (Docker)
 
-1. **Cloner le repository**
 ```bash
-git clone https://github.com/Roomee-sas/roomee-rabbitmq.git
-cd roomee-rabbitmq
-```
-
-2. **Configurer les variables d'environnement**
-```bash
-cp .env.example .env
-# Modifier .env avec vos valeurs
-```
-
-3. **Démarrer RabbitMQ**
-```bash
+# 1. Démarrer RabbitMQ
 docker-compose up -d
+
+# 2. Créer l'utilisateur admin (si nécessaire)
+docker exec roomee-rabbitmq rabbitmqctl add_user roomee_admin R00m33_@MQP_2024!
+docker exec roomee-rabbitmq rabbitmqctl set_user_tags roomee_admin administrator
+docker exec roomee-rabbitmq rabbitmqctl set_permissions -p / roomee_admin ".*" ".*" ".*"
+
+# 3. Vérifier
+docker ps | grep roomee-rabbitmq
+docker logs roomee-rabbitmq
 ```
 
-4. **Créer l'utilisateur admin** (si pas créé automatiquement)
+### Accès Local
+
+- **AMQP** : `localhost:5673`
+- **Management UI** : http://localhost:15673
+- **Credentials** : `roomee_admin` / `R00m33_@MQP_2024!`
+
+### Tester
+
+```bash
+cd examples
+npm install
+npm test  # Test complet local
+```
+
+---
+
+## 🌐 Configuration Production (Koyeb)
+
+### Informations du Service
+
+D'après Koyeb Overview :
+
+| Type | Adresse | Usage |
+|------|---------|-------|
+| **Management UI** | `https://amqp.roomee.io/` | Interface web |
+| **Private Address** | `roomee-rabbitmq.amqp.internal:5672` | ✅ Services Koyeb |
+| **TCP Proxy** | `01.proxy.koyeb.app:22328` | Tests externes |
+
+### URL pour Services Koyeb
+
+```bash
+AMQP_GATEWAY_URL=amqp://roomee_admin:R00m33_%40MQP_2024%21@roomee-rabbitmq.amqp.internal:5672
+```
+
+**Important** :
+- `roomee-rabbitmq` : Nom du service
+- `.amqp` : Nom de l'App Koyeb
+- `.internal` : Réseau privé Koyeb
+- Port `5672` : AMQP standard
+- `@` encodé en `%40`, `!` encodé en `%21`
+
+---
+
+## ⚙️ Configuration par Service
+
+### Variables d'Environnement Koyeb
+
+Pour **chaque microservice** sur Koyeb, définir ces variables :
+
+#### api-authentication
+```bash
+AMQP_GATEWAY_URL=amqp://roomee_admin:R00m33_%40MQP_2024%21@roomee-rabbitmq.amqp.internal:5672
+AMQP_EXCHANGE_NAME=roomee_events
+AMQP_QUEUE_NAME=amqp_authentication_queue_prod
+AMQP_ROUTING_KEYS=["roomee.auth.*"]
+AMQP_ROUTING_KEY_BASE=roomee.auth
+```
+
+#### api-notification
+```bash
+AMQP_GATEWAY_URL=amqp://roomee_admin:R00m33_%40MQP_2024%21@roomee-rabbitmq.amqp.internal:5672
+AMQP_EXCHANGE_NAME=roomee_events
+AMQP_QUEUE_NAME=amqp_notification_queue_prod
+AMQP_ROUTING_KEYS=["roomee.notification.*","roomee.auth.*","roomee.member.*"]
+AMQP_ROUTING_KEY_BASE=roomee.notification
+```
+
+#### api-hotel
+```bash
+AMQP_GATEWAY_URL=amqp://roomee_admin:R00m33_%40MQP_2024%21@roomee-rabbitmq.amqp.internal:5672
+AMQP_EXCHANGE_NAME=roomee_events
+AMQP_QUEUE_NAME=amqp_hotel_queue_prod
+AMQP_ROUTING_KEYS=["roomee.hotel.*"]
+AMQP_ROUTING_KEY_BASE=roomee.hotel
+```
+
+#### api-staff-member
+```bash
+AMQP_GATEWAY_URL=amqp://roomee_admin:R00m33_%40MQP_2024%21@roomee-rabbitmq.amqp.internal:5672
+AMQP_EXCHANGE_NAME=roomee_events
+AMQP_QUEUE_NAME=amqp_member_queue_prod
+AMQP_ROUTING_KEYS=["roomee.member.*","roomee.auth.*"]
+AMQP_ROUTING_KEY_BASE=roomee.member
+```
+
+#### api-news
+```bash
+AMQP_GATEWAY_URL=amqp://roomee_admin:R00m33_%40MQP_2024%21@roomee-rabbitmq.amqp.internal:5672
+AMQP_EXCHANGE_NAME=roomee_events
+AMQP_QUEUE_NAME=amqp_news_queue_prod
+AMQP_ROUTING_KEYS=["roomee.news.*","roomee.member.*"]
+AMQP_ROUTING_KEY_BASE=roomee.news
+```
+
+#### api-media
+```bash
+AMQP_GATEWAY_URL=amqp://roomee_admin:R00m33_%40MQP_2024%21@roomee-rabbitmq.amqp.internal:5672
+AMQP_EXCHANGE_NAME=roomee_events
+AMQP_QUEUE_NAME=amqp_media_queue_prod
+AMQP_ROUTING_KEYS=["roomee.media.*"]
+AMQP_ROUTING_KEY_BASE=roomee.media
+```
+
+---
+
+## 📦 Exchanges Configurés
+
+### 1. `roomee_events` (Principal)
+
+- **Type** : Topic
+- **Usage** : Exchange principal pour tous les événements
+- **Routing Keys** : `roomee.<service>.<action>`
+- **Exemples** :
+  - `roomee.auth.user.created`
+  - `roomee.notification.sent`
+  - `roomee.member.updated`
+
+### 2. `gateway_exchange`
+
+- **Type** : Topic
+- **Usage** : Communication via gateway
+- **Créé automatiquement** au démarrage
+
+---
+
+## 🧪 Tests et Scripts
+
+### Scripts de Test Disponibles
+
+```bash
+cd examples
+npm install
+
+# Test local complet (Docker)
+npm test
+
+# Test Koyeb via Management API
+npm run test:koyeb-api
+
+# Test Koyeb via TCP Proxy
+npm run test:koyeb-proxy
+
+# Lister les exchanges
+./list-exchanges.sh
+
+# Créer un exchange
+./create-exchange.sh mon_exchange topic
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Erreur : `ENOTFOUND roomee-rabbitmq`
+
+**Cause** : URL incorrecte pour Koyeb.
+
+**Solution** : Utiliser l'adresse privée complète :
+```bash
+roomee-rabbitmq.amqp.internal:5672
+```
+
+### Erreur : `no exchange 'gateway_exchange'`
+
+**Solution** : L'exchange est maintenant créé automatiquement dans `definitions.json`.
+
+### Port déjà utilisé (local)
+
+**Cause** : RabbitMQ installé localement occupe le port 5672.
+
+**Solution** : Le `docker-compose.yml` utilise déjà le port `5673` pour éviter ce conflit.
+
+### Créer un utilisateur manuellement
+
 ```bash
 docker exec roomee-rabbitmq rabbitmqctl add_user roomee_admin R00m33_@MQP_2024!
 docker exec roomee-rabbitmq rabbitmqctl set_user_tags roomee_admin administrator
 docker exec roomee-rabbitmq rabbitmqctl set_permissions -p / roomee_admin ".*" ".*" ".*"
 ```
 
-5. **Accéder à l'interface**
-- **AMQP**: `localhost:5673`
-- **Management UI**: http://localhost:15673
-- **Identifiants**:
-  - Username: `roomee_admin`
-  - Password: `R00m33_@MQP_2024!`
+⚠️ **Important** : Ne pas mettre de guillemets autour du mot de passe.
 
-6. **Tester avec les scripts d'exemple** 📋
-```bash
-cd examples
-npm install
-
-# Terminal 1: Démarrer le consumer
-npm run consumer
-
-# Terminal 2: Envoyer un message de test
-npm run producer
-```
-
-Pour plus de détails sur les tests : **[📖 Guide de Test Local](./examples/TEST-LOCAL.md)**
-
-## 📝 Déploiement sur Koyeb
-
-### 1️⃣ Test local
-```bash
-# Tester localement
-docker-compose up -d
-
-# Vérifier que RabbitMQ fonctionne
-curl http://localhost:15672
-# Login: roomee_admin / [VOTRE_MOT_DE_PASSE]
-```
-
-### 2️⃣ Créer un repository GitHub
-```bash
-git init
-git add .
-git commit -m "Initial RabbitMQ setup for Koyeb"
-git remote add origin https://github.com/Roomee-sas/roomee-rabbitmq.git
-git push -u origin main
-```
-
-### 3️⃣ Déploiement sur Koyeb (via Interface Web)
-
-1. **Connectez-vous à Koyeb** : https://app.koyeb.com
-
-2. **Créer une nouvelle App** :
-   - Cliquez sur "Create App"
-   - Choisissez "GitHub" comme source
-   - Sélectionnez votre repository `roomee-rabbitmq`
-
-3. **Configuration du service** :
-   ```
-   Build settings:
-   - Builder: Dockerfile
-   - Dockerfile path: ./Dockerfile
-   - Build context: .
-
-   Deployment settings:
-   - Instance type: Small (minimum recommandé)
-   - Regions: Europe (fra) ou selon vos besoins
-   - Replicas: 1 (augmenter pour HA)
-   ```
-
-4. **Variables d'environnement** :
-   ```
-   RABBITMQ_DEFAULT_USER=roomee_admin
-   RABBITMQ_DEFAULT_PASS=[VOTRE_MOT_DE_PASSE]
-   ```
-
-5. **Configuration des ports** :
-   ```
-   - Port 5672: AMQP (TCP)
-   - Port 15672: Management UI (HTTP)
-   ```
-
-6. **Health checks** :
-   ```
-   Path: /api/health
-   Port: 15672
-   Protocol: HTTP
-   ```
-
-### 4️⃣ Déploiement via Koyeb CLI (Alternative)
+### Vérifier les connexions
 
 ```bash
-# Installation Koyeb CLI
-brew install koyeb/tap/koyeb-cli  # macOS
-# ou
-curl -fsSL https://github.com/koyebinc/koyeb-cli/releases/latest/download/koyeb-linux-amd64 -o koyeb
+# Logs RabbitMQ
+docker logs -f roomee-rabbitmq
 
-# Login
-koyeb login
+# Lister les connexions
+docker exec roomee-rabbitmq rabbitmqctl list_connections
 
-# Déployer
-koyeb app create roomee-rabbitmq \
-  --git https://github.com/Roomee-sas/roomee-rabbitmq.git \
-  --git-branch main \
-  --docker-file Dockerfile \
-  --ports 5672:tcp,15672:http \
-  --env RABBITMQ_DEFAULT_USER=roomee_admin \
-  --env RABBITMQ_DEFAULT_PASS=[VOTRE_MOT_DE_PASSE] \
-  --regions fra \
-  --instance-type small
+# Lister les queues
+docker exec roomee-rabbitmq rabbitmqctl list_queues
+
+# Status du service
+docker exec roomee-rabbitmq rabbitmq-diagnostics -q ping
 ```
 
-### 5️⃣ Configuration post-déploiement
+---
 
-1. **Obtenir l'URL publique** :
-   ```
-   https://roomee-rabbitmq-roomee.koyeb.app
-   ```
+## 🏗️ Architecture Réseau Koyeb
 
-2. **Accéder à l'interface Management** :
-   ```
-   https://roomee-rabbitmq-roomee.koyeb.app:15672
-   ```
+### Réseau Privé vs Public
 
-3. **Configurer les exchanges et queues** :
-   ```javascript
-   // Dans votre code Node.js
-   const amqpUrl = 'amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672';
-   ```
-
-## 🔧 Configuration pour les microservices Roomee
-
-### 🎯 Architecture : Auto-création des Queues
-
-**Important** : Les queues et bindings sont créés **automatiquement** par chaque service au démarrage.
-Le fichier `definitions.json` ne contient que l'exchange principal `roomee_events`.
-
-### Mise à jour des services
-
-Mettre à jour les `.env` de chaque service avec le bon nom de queue :
-
-```bash
-# api-authentication/.env
-AMQP_GATEWAY_URL=amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672
-AMQP_EXCHANGE_NAME=roomee_events
-AMQP_QUEUE_NAME=amqp_authentication_queue_dev  # ⚠️ Nom spécifique au service
-AMQP_ROUTING_KEYS=["roomee.auth.*"]
-AMQP_ROUTING_KEY_BASE=roomee.auth
-
-# api-notification/.env
-AMQP_GATEWAY_URL=amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672
-AMQP_EXCHANGE_NAME=roomee_events
-AMQP_QUEUE_NAME=amqp_notification_queue_dev
-AMQP_ROUTING_KEYS=["roomee.notification.*","roomee.auth.*","roomee.member.*"]
-AMQP_ROUTING_KEY_BASE=roomee.notification
-
-# api-news/.env
-AMQP_GATEWAY_URL=amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672
-AMQP_EXCHANGE_NAME=roomee_events
-AMQP_QUEUE_NAME=amqp_news_queue_dev
-AMQP_ROUTING_KEYS=["roomee.news.*","roomee.member.*"]
-AMQP_ROUTING_KEY_BASE=roomee.news
-
-# api-hotel/.env
-AMQP_GATEWAY_URL=amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672
-AMQP_EXCHANGE_NAME=roomee_events
-AMQP_QUEUE_NAME=amqp_hotel_queue_dev
-AMQP_ROUTING_KEYS=["roomee.hotel.*"]
-AMQP_ROUTING_KEY_BASE=roomee.hotel
-
-# api-staff-member/.env
-AMQP_GATEWAY_URL=amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672
-AMQP_EXCHANGE_NAME=roomee_events
-AMQP_QUEUE_NAME=amqp_member_queue_dev
-AMQP_ROUTING_KEYS=["roomee.member.*","roomee.auth.*"]
-AMQP_ROUTING_KEY_BASE=roomee.member
-
-# api-media/.env
-AMQP_GATEWAY_URL=amqps://roomee_admin:[VOTRE_MOT_DE_PASSE]@roomee-rabbitmq-roomee.koyeb.app:5672
-AMQP_EXCHANGE_NAME=roomee_events
-AMQP_QUEUE_NAME=amqp_media_queue_dev
-AMQP_ROUTING_KEYS=["roomee.media.*"]
-AMQP_ROUTING_KEY_BASE=roomee.media
+```
+┌─────────────── KOYEB PRIVATE NETWORK ───────────────┐
+│                                                      │
+│  Services → roomee-rabbitmq.amqp.internal:5672      │
+│  (Rapide, sécurisé, recommandé)                     │
+│                                                      │
+└──────────────────────────────────────────────────────┘
+                         │
+                         ▼
+              https://amqp.roomee.io/
+           (Management UI accessible)
+                         │
+                         ▼
+         01.proxy.koyeb.app:22328
+       (TCP Proxy pour tests externes)
 ```
 
-### 📖 Documentation complète
+### Pourquoi le Port AMQP n'est pas Accessible Publiquement ?
 
-Voir les fichiers suivants pour plus de détails :
-- **[SERVICE-AMQP-SETUP.md](./SERVICE-AMQP-SETUP.md)** : Guide complet de configuration AMQP
-- **[example-service-config.env](./example-service-config.env)** : Exemples de configuration par service
-- **[example-service-implementation.ts](./example-service-implementation.ts)** : Code d'exemple pour l'intégration
+C'est **normal** et **sécurisé**. Le port 5672 (AMQP) n'est accessible que :
+
+✅ **Depuis vos services Koyeb** (réseau privé)
+✅ **Via TCP Proxy** (01.proxy.koyeb.app:22328)
+✅ **Via Management UI** (https://amqp.roomee.io/)
+❌ **Pas directement depuis l'extérieur** (`amqp.roomee.io:5672`)
+
+---
+
+## 📝 Modifications Techniques Effectuées
+
+### 1. `docker-compose.yml`
+
+```yaml
+# Ports modifiés (éviter conflits locaux)
+ports:
+  - '5673:5672'  # AMQP
+  - '15673:15672' # Management UI
+
+# SSL désactivé pour dev local
+# - '5671:5671' # À réactiver en prod avec certificats
+```
+
+### 2. `rabbitmq.conf`
+
+```ini
+# SSL commenté (pas de certificats en dev local)
+# listeners.ssl.default = 5671
+# ssl_options.cacertfile = /etc/rabbitmq/certs/ca.pem
+# ...
+
+# CORS configuré pour domaines Roomee
+management.cors.allow_origins.1 = https://apis-dev.roomee.io
+management.cors.allow_origins.2 = https://apis-staging.roomee.io
+management.cors.allow_origins.3 = https://apis-prod.roomee.io
+management.cors.allow_origins.4 = https://amqp.roomee.io
+```
+
+⚠️ **Production** : Décommenter et configurer SSL avec de vrais certificats.
+
+### 3. `definitions.json`
+
+```json
+{
+  "exchanges": [
+    { "name": "roomee_events", "type": "topic", "durable": true },
+    { "name": "gateway_exchange", "type": "topic", "durable": true }
+  ]
+}
+```
+
+Les exchanges sont créés automatiquement au démarrage.
+
+---
 
 ## 🔒 Sécurité
 
-### SSL/TLS
-Koyeb fournit automatiquement des certificats SSL. Utilisez `amqps://` au lieu de `amqp://`.
+### Développement Local
 
-### Firewall Rules
-Dans Koyeb, configurez les règles réseau :
-- Port 5672 : Autoriser uniquement depuis vos services
-- Port 15672 : Restreindre aux IPs administrateurs
+- Port AMQP sur `5673` (non standard)
+- SSL désactivé
+- Utilisateur : `roomee_admin`
+- Pas d'exposition publique
 
-### Rotation des mots de passe
-```bash
-# Se connecter au container
-koyeb exec roomee-rabbitmq -- rabbitmqctl change_password roomee_admin NEW_PASSWORD
-```
+### Production Koyeb
+
+- Réseau privé `.amqp.internal`
+- SSL à configurer (avec certificats)
+- Management UI via HTTPS
+- Isolation réseau entre services
+
+### Bonnes Pratiques
+
+✅ Ne jamais committer les mots de passe en clair
+✅ Utiliser des variables d'environnement
+✅ Activer SSL en production
+✅ Restreindre l'accès Management UI
+✅ Utiliser des mots de passe forts
+✅ Rotation régulière des credentials
+
+---
 
 ## 📊 Monitoring
 
-### Dashboard Koyeb
-- Metrics CPU/Memory
-- Logs en temps réel
-- Alertes automatiques
+### Management UI
 
-### RabbitMQ Management
-Accessible via : `https://roomee-rabbitmq-roomee.koyeb.app:15672`
-- Queues status
-- Message rates
-- Connections
-- Exchanges
+Accessible sur http://localhost:15673 (local) ou https://amqp.roomee.io/ (Koyeb) :
 
-## 🔄 Mise à jour
+- État des connexions
+- Queues et messages
+- Exchanges et bindings
+- Statistiques de performance
+- Gestion des utilisateurs
 
-### Via GitHub (recommandé)
+### Logs
+
 ```bash
-# Modifier le code
-git add .
-git commit -m "Update RabbitMQ configuration"
-git push origin main
-# Koyeb redéploie automatiquement
+# Logs Docker local
+docker logs -f roomee-rabbitmq
+
+# Logs Koyeb
+Koyeb Dashboard → Service RabbitMQ → Logs
 ```
 
-### Via CLI
+### Vérifications
+
 ```bash
-koyeb service redeploy roomee-rabbitmq/roomee-rabbitmq
+# Health check
+docker exec roomee-rabbitmq rabbitmq-diagnostics -q check_running
+
+# Liste des exchanges
+docker exec roomee-rabbitmq rabbitmqctl list_exchanges
+
+# Liste des queues
+docker exec roomee-rabbitmq rabbitmqctl list_queues
+
+# Connexions actives
+docker exec roomee-rabbitmq rabbitmqctl list_connections
+
+# Statistiques
+curl -s -u roomee_admin:R00m33_@MQP_2024! http://localhost:15673/api/overview
 ```
 
-## 🔧 Configuration des microservices
+---
 
-Une fois RabbitMQ déployé, configurez vos microservices avec l'URL de connexion :
-
-### Local
-```javascript
-const amqpUrl = 'amqp://roomee_admin:[PASSWORD]@localhost:5673';
-```
-
-### Production (Koyeb)
-```javascript
-const amqpUrl = 'amqps://roomee_admin:[PASSWORD]@roomee-rabbitmq-roomee.koyeb.app:5672';
-```
-
-## 📁 Structure du projet
+## 📁 Structure du Projet
 
 ```
-├── Dockerfile              # Configuration Docker
-├── docker-compose.yml      # Setup développement local
-├── rabbitmq.conf          # Configuration RabbitMQ
-├── startup.sh             # Script d'initialisation
-├── .env.example           # Template variables d'environnement
-├── .gitignore            # Fichiers ignorés par Git
-└── README.md             # Ce fichier
+roomee-amqp-docker/amqp-roomee/
+├── Dockerfile                    # Image RabbitMQ personnalisée
+├── docker-compose.yml           # Orchestration Docker local
+├── rabbitmq.conf                # Configuration RabbitMQ
+├── definitions.json             # Exchanges prédéfinis
+├── fix-perms-and-start.sh       # Script de démarrage
+├── .env.example                 # Template variables
+├── .gitignore                   # Fichiers ignorés
+├── README.md                    # Cette documentation
+└── examples/                    # Scripts de test (ignoré par git)
+    ├── package.json
+    ├── test-complete.js         # Test local complet
+    ├── test-koyeb-api.js        # Test Management API
+    ├── test-koyeb-proxy.js      # Test TCP Proxy
+    ├── test-producer.js         # Producer simple
+    ├── test-consumer.js         # Consumer simple
+    ├── create-exchange.sh       # Créer un exchange
+    ├── list-exchanges.sh        # Lister les exchanges
+    ├── TEST-LOCAL.md            # Guide de test détaillé
+    ├── EXCHANGES-GUIDE.md       # Guide des exchanges
+    └── ...
 ```
 
-## 🆘 Troubleshooting
+---
 
-### Connection refused
-```bash
-# Vérifier le statut du container
-docker ps | grep rabbitmq
+## 🎯 Résumé Configuration
 
-# Voir les logs
-docker logs roomee-rabbitmq
-```
+### Local (Développement)
 
-### Port déjà utilisé
-Modifier les ports dans `docker-compose.yml` :
-```yaml
-ports:
-  - "5674:5672"   # AMQP
-  - "15674:15672" # Management UI
-```
+| Paramètre | Valeur |
+|-----------|--------|
+| URL AMQP | `amqp://roomee_admin:R00m33_%40MQP_2024%21@localhost:5673` |
+| Management UI | http://localhost:15673 |
+| Port AMQP | 5673 |
+| Port Management | 15673 |
+| SSL | Désactivé |
 
-## 🔒 Sécurité
+### Koyeb (Production)
 
-- ⚠️ **Jamais de mots de passe en clair** dans le code
-- 🔐 Variables d'environnement uniquement
-- 🛡️ SSL/TLS automatique sur Koyeb
-- 🔑 Authentification forte requise
+| Paramètre | Valeur |
+|-----------|--------|
+| URL AMQP | `amqp://roomee_admin:R00m33_%40MQP_2024%21@roomee-rabbitmq.amqp.internal:5672` |
+| Management UI | https://amqp.roomee.io/ |
+| TCP Proxy | `01.proxy.koyeb.app:22328` |
+| Port AMQP | 5672 |
+| SSL | À configurer |
 
-## 📚 Ressources
+---
 
-- [Koyeb Documentation](https://www.koyeb.com/docs)
+## 🆘 Support
+
+### Documentation Additionnelle
+
+- `examples/TEST-LOCAL.md` - Guide de test local détaillé
+- `examples/EXCHANGES-GUIDE.md` - Gestion avancée des exchanges
 - [RabbitMQ Documentation](https://www.rabbitmq.com/documentation.html)
-- [RabbitMQ Docker Image](https://hub.docker.com/_/rabbitmq)
+- [Koyeb Documentation](https://www.koyeb.com/docs)
+
+### Commandes Utiles
+
+```bash
+# Redémarrer RabbitMQ
+docker-compose restart
+
+# Reconstruire l'image
+docker-compose build --no-cache
+
+# Arrêter et supprimer les volumes
+docker-compose down -v
+
+# Voir les logs en temps réel
+docker logs -f roomee-rabbitmq
+
+# Exécuter une commande RabbitMQ
+docker exec roomee-rabbitmq rabbitmqctl <commande>
+```
+
+---
 
 ## 🤝 Contribution
 
 1. Fork le projet
-2. Créer une branche feature (`git checkout -b feature/nouvelle-fonctionnalite`)
-3. Commit les changements (`git commit -am 'Ajouter nouvelle fonctionnalité'`)
-4. Push vers la branche (`git push origin feature/nouvelle-fonctionnalite`)
+2. Créer une branche feature (`git checkout -b feature/amelioration`)
+3. Commit les changements (`git commit -am 'Ajout fonctionnalité'`)
+4. Push vers la branche (`git push origin feature/amelioration`)
 5. Créer une Pull Request
 
 ---
 
-**Roomee SAS** - Plateforme hôtelière complète
+**Roomee SAS** - Infrastructure AMQP pour Microservices
